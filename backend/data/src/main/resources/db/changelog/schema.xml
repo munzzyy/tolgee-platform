@@ -5775,4 +5775,16 @@
         ]]></sql>
         <rollback/>
     </changeSet>
+
+    <changeSet author="bdshadow" id="soft-delete-projects-of-deleted-organizations">
+        <sql dbms="postgresql">
+            UPDATE project p
+            SET deleted_at = o.deleted_at
+            FROM organization o
+            WHERE p.organization_owner_id = o.id
+              AND o.deleted_at IS NOT NULL
+              AND p.deleted_at IS NULL;
+        </sql>
+        <rollback/>
+    </changeSet>
 </databaseChangeLog>

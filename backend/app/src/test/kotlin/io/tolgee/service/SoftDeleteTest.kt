@@ -26,6 +26,32 @@ class SoftDeleteTest : AbstractSpringTest() {
   }
 
   @Test
+  fun `deleting organization soft deletes its projects`() {
+    val testData = BaseTestData()
+    executeInNewTransaction {
+      testDataService.saveTestData(testData.root)
+    }
+
+    val organizationId = testData.projectBuilder.self.organizationOwner.id
+    val projectId = testData.projectBuilder.self.id
+
+    executeInNewTransaction {
+      organizationService.delete(organizationService.get(organizationId))
+    }
+
+    executeInNewTransaction {
+      val deletedAt =
+        entityManager
+          .createNativeQuery("select deleted_at from project where id = :id")
+          .setParameter("id", projectId)
+          .singleResult
+      deletedAt.assert.isNotNull
+
+      projectService.findAllPermitted(testData.user).assert.isEmpty()
+    }
+  }
+
+  @Test
   fun `queries don't return deleted projects`() {
     val testData = BaseTestData()
     executeInNewTransaction {

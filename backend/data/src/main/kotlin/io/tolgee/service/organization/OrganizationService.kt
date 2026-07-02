@@ -264,6 +264,9 @@ class OrganizationService(
     }
     organization.deletedAt = currentDateProvider.date
     save(organization)
+    projectService.findAllActiveInOrganization(organization.id).forEach {
+      projectService.deleteProject(it.id)
+    }
     eventPublisher.publishEvent(BeforeOrganizationDeleteEvent(organization))
     organization.preferredBy
       .toList() // we need to clone it so hibernate doesn't change it concurrently
