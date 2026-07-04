@@ -54,6 +54,7 @@ export const BaseOrganizationSettingsView: React.FC<
         [PARAMS.ORGANIZATION_SLUG]: organizationSlug,
       }),
       label: t('organization_menu_profile'),
+      'data-cy': 'profile',
     },
   ];
 
@@ -72,16 +73,20 @@ export const BaseOrganizationSettingsView: React.FC<
     });
   }
 
-  menuItems.push({
-    link: LINKS.ORGANIZATION_GLOSSARIES.build({
-      [PARAMS.ORGANIZATION_SLUG]: organizationSlug,
-    }),
-    label: t('organization_menu_glossaries'),
-  });
+  // these links' org endpoints 403 anyone without membership or a direct project
+  // permission (see OrganizationAuthorizationInterceptor) — hide them from such viewers
+  const isCommunityOnly = Boolean(preferredOrganization?.communityOnly);
 
-  // TM browse is gated server-side to actual org members — hide the link for project-only
-  // viewers so they don't land on a 403. Glossary stays visible for parity since it carries
-  // no virtual cross-project content.
+  if (!isCommunityOnly) {
+    menuItems.push({
+      link: LINKS.ORGANIZATION_GLOSSARIES.build({
+        [PARAMS.ORGANIZATION_SLUG]: organizationSlug,
+      }),
+      label: t('organization_menu_glossaries'),
+      'data-cy': 'glossaries',
+    });
+  }
+
   if (preferredOrganization?.currentUserRole != null || isAdminOrSupporter) {
     menuItems.push({
       link: LINKS.ORGANIZATION_TRANSLATION_MEMORIES.build({
@@ -91,6 +96,7 @@ export const BaseOrganizationSettingsView: React.FC<
         'organization_menu_translation_memories',
         'Translation memories'
       ),
+      'data-cy': 'translation-memories',
     });
   }
 

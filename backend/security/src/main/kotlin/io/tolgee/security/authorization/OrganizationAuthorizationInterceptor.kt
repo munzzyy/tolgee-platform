@@ -25,6 +25,7 @@ import io.tolgee.security.OrganizationHolder
 import io.tolgee.security.RequestContextService
 import io.tolgee.security.authentication.AuthenticationFacade
 import io.tolgee.security.authentication.isReadOnly
+import io.tolgee.service.organization.OrganizationCommunityAccessService
 import io.tolgee.service.organization.OrganizationRoleService
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
@@ -43,6 +44,8 @@ class OrganizationAuthorizationInterceptor(
   private val authenticationFacade: AuthenticationFacade,
   @Lazy
   private val organizationRoleService: OrganizationRoleService,
+  @Lazy
+  private val organizationCommunityAccessService: OrganizationCommunityAccessService,
   @Lazy
   private val requestContextService: RequestContextService,
   private val organizationHolder: OrganizationHolder,
@@ -72,23 +75,7 @@ class OrganizationAuthorizationInterceptor(
     )
 
     if (!organizationRoleService.canUserViewStrict(userId, organization.id)) {
-      if (!canBypass(request, handler)) {
-        logger.debug(
-          "Rejecting access to org#{} for user#{} - No view permissions",
-          organization.id,
-          userId,
-        )
-
-        if (!canBypassForReadOnly()) {
-          // Security consideration: if the user cannot see the organization, pretend it does not exist.
-          throw NotFoundException()
-        }
-
-        // Admin access for read-only operations is allowed, but it's not enough for the current operation.
-        throw PermissionException()
-      }
-
-      bypassed = true
+      bypassed = handleMissingViewPermission(request, handler, userId, organization.id)
     }
 
     if (requiredRole != null && !organizationRoleService.isUserOfRole(userId, organization.id, requiredRole)) {
@@ -117,6 +104,55 @@ class OrganizationAuthorizationInterceptor(
 
     organizationHolder.organization = organization
     return true
+  }
+
+  /**
+   * @return whether the request proceeds via admin bypass (`true` sets the audit-logged
+   * `bypassed` flag; community access proceeds without it)
+   */
+  private fun handleMissingViewPermission(
+    request: HttpServletRequest,
+    handler: HandlerMethod,
+    userId: Long,
+    organizationId: Long,
+  ): Boolean {
+    if (canBypass(request, handler)) {
+      return true
+    }
+
+    if (isCommunityAccessAllowed(request, handler, userId, organizationId)) {
+      return false
+    }
+
+    logger.debug(
+      "Rejecting access to org#{} for user#{} - No view permissions",
+      organizationId,
+      userId,
+    )
+
+    if (!canBypassForReadOnly()) {
+      // Security consideration: if the user cannot see the organization, pretend it does not exist.
+      throw NotFoundException()
+    }
+
+    // Admin access for read-only operations is allowed, but it's not enough for the current operation.
+    throw PermissionException()
+  }
+
+  private fun isCommunityAccessAllowed(
+    request: HttpServletRequest,
+    handler: HandlerMethod,
+    userId: Long,
+    organizationId: Long,
+  ): Boolean {
+    AnnotationUtils.getAnnotation(handler.method, AllowsCommunityAccess::class.java)
+      ?: return false
+
+    if (!handler.isReadOnly(request.method)) {
+      return false
+    }
+
+    return organizationCommunityAccessService.canUserViewAtLeastCommunity(userId, organizationId)
   }
 
   private fun getRequiredRole(

@@ -25,6 +25,8 @@ export const ProjectListView = () => {
   const [search, setSearch] = useState('');
   const { preferredOrganization } = usePreferredOrganization();
 
+  const isCommunityOnly = Boolean(preferredOrganization?.communityOnly);
+
   const listPermitted = useApiQuery({
     url: '/v2/organizations/{slug}/projects-with-stats',
     method: 'get',
@@ -37,9 +39,27 @@ export const ProjectListView = () => {
     },
     options: {
       keepPreviousData: true,
-      enabled: Boolean(preferredOrganization?.slug),
+      enabled: Boolean(preferredOrganization?.slug) && !isCommunityOnly,
     },
   });
+
+  const listPublic = useApiQuery({
+    url: '/v2/public/projects/with-stats',
+    method: 'get',
+    query: {
+      page,
+      size: 20,
+      search,
+      sort: ['id,desc'],
+      organizationId: preferredOrganization?.id,
+    },
+    options: {
+      keepPreviousData: true,
+      enabled: isCommunityOnly,
+    },
+  });
+
+  const activeList = isCommunityOnly ? listPublic : listPermitted;
 
   const { t } = useTranslate();
 
@@ -50,10 +70,11 @@ export const ProjectListView = () => {
   const isAdminAccess =
     !preferredOrganization?.currentUserRole && isAdminOrSupporter;
 
-  const addAllowed = isOrganizationOwnerOrMaintainer || isAdminAccess;
+  const addAllowed =
+    !isCommunityOnly && (isOrganizationOwnerOrMaintainer || isAdminAccess);
 
   const showSearch = useLatchedSearchVisibility(
-    listPermitted.data?.page?.totalElements,
+    activeList.data?.page?.totalElements,
     search
   );
 
@@ -88,14 +109,15 @@ export const ProjectListView = () => {
         addLabel={t('projects_add_button')}
         hideChildrenOnLoading={false}
         customButtons={[<CriticalUsageCircle key="usage" />]}
-        loading={listPermitted.isFetching}
+        loading={activeList.isFetching}
       >
         <ProjectsList
-          loadable={listPermitted}
+          loadable={activeList}
+          variant={isCommunityOnly ? 'public' : 'default'}
           onPageChange={setPage}
           emptyPlaceholder={
             <EmptyListMessage
-              loading={listPermitted.isFetching}
+              loading={activeList.isFetching}
               hint={
                 isOrganizationOwnerOrMaintainer ? (
                   <Button

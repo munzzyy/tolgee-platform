@@ -11,6 +11,24 @@ class PublicProjectsE2eData(
 ) : BaseTestData("publicProjectsUser", "Private project") {
   init {
     root.apply {
+      val communityUserBuilder =
+        addUserAccount {
+          username = "communityUser"
+          name = "Community User"
+        }
+
+      // second-org public project: keeps the org-scoped community listing assertions load-bearing
+      // (a dropped organizationId filter would surface it); the "few" dataset stays below the
+      // search threshold, so it is standard-only
+      if (count >= 6) {
+        addProject(organizationOwner = communityUserBuilder.defaultOrganizationBuilder.self) {
+          name = "Community Outsider"
+          public = true
+        }.build {
+          addBaseLanguage()
+        }
+      }
+
       listOf("Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta").take(count).forEach { suffix ->
         addProject(organizationOwner = userAccountBuilder.defaultOrganizationBuilder.self) {
           name = "Community $suffix"

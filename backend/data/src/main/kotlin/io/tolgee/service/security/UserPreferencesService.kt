@@ -5,9 +5,10 @@ import io.tolgee.model.UserAccount
 import io.tolgee.model.UserPreferences
 import io.tolgee.repository.UserPreferencesRepository
 import io.tolgee.security.authentication.AuthenticationFacade
-import io.tolgee.service.organization.OrganizationRoleService
+import io.tolgee.service.organization.OrganizationCommunityAccessService
 import io.tolgee.service.organization.OrganizationService
 import io.tolgee.util.tryUntilItDoesntBreakConstraint
+import org.springframework.context.annotation.Lazy
 import org.springframework.stereotype.Service
 
 @Service
@@ -16,7 +17,8 @@ class UserPreferencesService(
   private val userPreferencesRepository: UserPreferencesRepository,
   private val userAccountService: UserAccountService,
   private val organizationService: OrganizationService,
-  private val organizationRoleService: OrganizationRoleService,
+  @param:Lazy
+  private val organizationCommunityAccessService: OrganizationCommunityAccessService,
 ) {
   fun setLanguage(
     tag: String,
@@ -99,7 +101,7 @@ class UserPreferencesService(
   fun refreshPreferredOrganization(preferences: UserPreferences): Organization? {
     val canUserView =
       preferences.preferredOrganization?.let { po ->
-        organizationRoleService.canUserView(
+        organizationCommunityAccessService.canUserViewAtLeastCommunity(
           preferences.userAccount.id,
           po.id,
         )

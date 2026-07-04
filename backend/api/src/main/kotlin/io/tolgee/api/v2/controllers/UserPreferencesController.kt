@@ -11,7 +11,7 @@ import io.tolgee.hateoas.userPreferences.UserPreferencesModel
 import io.tolgee.security.authentication.AuthenticationFacade
 import io.tolgee.security.authentication.BypassEmailVerification
 import io.tolgee.security.authentication.BypassForcedSsoAuthentication
-import io.tolgee.service.organization.OrganizationRoleService
+import io.tolgee.service.organization.OrganizationCommunityAccessService
 import io.tolgee.service.organization.OrganizationService
 import io.tolgee.service.security.UserPreferencesService
 import org.springframework.web.bind.annotation.CrossOrigin
@@ -29,7 +29,7 @@ import org.springframework.web.bind.annotation.RestController
 class UserPreferencesController(
   private val userPreferencesService: UserPreferencesService,
   private val authenticationFacade: AuthenticationFacade,
-  private val organizationRoleService: OrganizationRoleService,
+  private val organizationCommunityAccessService: OrganizationCommunityAccessService,
   private val organizationService: OrganizationService,
 ) {
   @GetMapping("")
@@ -58,7 +58,7 @@ class UserPreferencesController(
     @PathVariable organizationId: Long,
   ) {
     val organization = organizationService.get(organizationId)
-    organizationRoleService.checkUserCanView(organization.id)
+    organizationCommunityAccessService.checkUserCanViewAtLeastCommunity(organization.id)
     userPreferencesService.setPreferredOrganization(organization, authenticationFacade.authenticatedUserEntity)
   }
 

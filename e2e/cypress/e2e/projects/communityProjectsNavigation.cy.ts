@@ -212,8 +212,8 @@ describe('Community projects list content', () => {
   });
 
   it('lists public projects across orgs with the public badge, hiding private ones', () => {
-    gcy('dashboard-projects-list-item').should('have.length', 6);
-    gcy('project-list-public-badge').should('have.length', 6);
+    gcy('dashboard-projects-list-item').should('have.length', 7);
+    gcy('project-list-public-badge').should('have.length', 7);
     cy.contains('Community Alpha').should('be.visible');
     cy.contains('Community Zeta').should('be.visible');
     cy.contains('Private project').should('not.exist');
@@ -234,7 +234,7 @@ describe('Community projects list content', () => {
     gcy('global-list-search').find('input').clear();
     // The length-6 assertion must come first: it retries until the debounced cleared-search
     // refetch lands, so the focus check below runs only after the field has (or hasn't) remounted.
-    gcy('dashboard-projects-list-item').should('have.length', 6);
+    gcy('dashboard-projects-list-item').should('have.length', 7);
     gcy('global-list-search').find('input').should('be.focused');
   });
 });

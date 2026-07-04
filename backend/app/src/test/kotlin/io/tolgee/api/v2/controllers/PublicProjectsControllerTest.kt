@@ -39,6 +39,22 @@ class PublicProjectsControllerTest : AuthorizedControllerTest() {
         .createNativeQuery("update project set deleted_at = now() where id = :id")
         .setParameter("id", testData.deletedPublicProject.id)
         .executeUpdate()
+      entityManager
+        .createNativeQuery("update project set base_language_id = null where id = :id")
+        .setParameter("id", testData.noBaseLangOnlyOrgProject.id)
+        .executeUpdate()
+      entityManager
+        .createNativeQuery("update language set deleted_at = now() where project_id = :id")
+        .setParameter("id", testData.softDeletedBaseLangOnlyOrgProject.id)
+        .executeUpdate()
+      entityManager
+        .createNativeQuery("update project set deleted_at = now() where id = :id")
+        .setParameter("id", testData.deletedProjectOnlyOrgProject.id)
+        .executeUpdate()
+      entityManager
+        .createNativeQuery("update organization set deleted_at = now() where id = :id")
+        .setParameter("id", testData.softDeletedOrg.id)
+        .executeUpdate()
     }
   }
 
@@ -185,6 +201,59 @@ class PublicProjectsControllerTest : AuthorizedControllerTest() {
     performGet("/v2/public/projects/with-stats").andIsOk.andAssertThatJson {
       node("_embedded.projects").isArray.hasSize(2)
     }
+  }
+
+  @Test
+  fun `excludes a public project of a soft-deleted organization`() {
+    performGet("/v2/public/projects/with-stats").andIsOk.andAssertThatJson {
+      node("_embedded.projects").isArray.hasSize(2)
+    }
+  }
+
+  @Test
+  fun `filters by organization for an anonymous visitor`() {
+    performGet("/v2/public/projects/with-stats?organizationId=${testData.otherOrg.id}")
+      .andIsOk
+      .andAssertThatJson {
+        node("_embedded.projects") {
+          isArray.hasSize(1)
+          node("[0].id").isEqualTo(testData.otherOrgPublicProject.id)
+        }
+      }
+  }
+
+  @Test
+  fun `filters by organization for a logged-in non-member`() {
+    userAccount = testData.nonMember
+    performAuthGet("/v2/public/projects/with-stats?organizationId=${testData.otherOrg.id}")
+      .andIsOk
+      .andAssertThatJson {
+        node("_embedded.projects") {
+          isArray.hasSize(1)
+          node("[0].id").isEqualTo(testData.otherOrgPublicProject.id)
+        }
+      }
+  }
+
+  @Test
+  fun `organization filter combines with search`() {
+    performGet("/v2/public/projects/with-stats?organizationId=${testData.otherOrg.id}&search=nothing-matches")
+      .andIsOk
+      .andAssertThatJson {
+        node("page.totalElements").isEqualTo(0)
+      }
+  }
+
+  @Test
+  fun `hasPublicProjects matches the public listing visibility exactly`() {
+    val defaultOrg = testData.userAccountBuilder.defaultOrganizationBuilder.self
+    projectService.hasPublicProjects(defaultOrg.id).assert.isTrue()
+    projectService.hasPublicProjects(testData.otherOrg.id).assert.isTrue()
+    projectService.hasPublicProjects(testData.noPublicOrg.id).assert.isFalse()
+    projectService.hasPublicProjects(testData.noBaseLangOnlyOrg.id).assert.isFalse()
+    projectService.hasPublicProjects(testData.softDeletedBaseLangOnlyOrg.id).assert.isFalse()
+    projectService.hasPublicProjects(testData.deletedProjectOnlyOrg.id).assert.isFalse()
+    projectService.hasPublicProjects(testData.softDeletedOrg.id).assert.isFalse()
   }
 
   private fun baseLanguageId(projectId: Long): Long? =

@@ -4,6 +4,7 @@ import io.tolgee.development.testDataBuilder.builders.ProjectBuilder
 import io.tolgee.model.Organization
 import io.tolgee.model.Project
 import io.tolgee.model.UserAccount
+import io.tolgee.model.enums.OrganizationRoleType
 import io.tolgee.model.enums.ProjectPermissionType
 
 class PublicProjectsControllerTestData : BaseTestData() {
@@ -20,6 +21,21 @@ class PublicProjectsControllerTestData : BaseTestData() {
   lateinit var softDeletedBaseProject: Project
   lateinit var orgLessProject: Project
   lateinit var deletedPublicProject: Project
+
+  lateinit var otherOrgMember: UserAccount
+  lateinit var serverAdmin: UserAccount
+
+  lateinit var noPublicOrg: Organization
+  lateinit var noPublicOrgMember: UserAccount
+
+  lateinit var noBaseLangOnlyOrg: Organization
+  lateinit var noBaseLangOnlyOrgProject: Project
+  lateinit var softDeletedBaseLangOnlyOrg: Organization
+  lateinit var softDeletedBaseLangOnlyOrgProject: Project
+  lateinit var deletedProjectOnlyOrg: Organization
+  lateinit var deletedProjectOnlyOrgProject: Project
+  lateinit var softDeletedOrg: Organization
+  lateinit var softDeletedOrgPublicProject: Project
 
   init {
     root.apply {
@@ -43,9 +59,27 @@ class PublicProjectsControllerTestData : BaseTestData() {
         addBaseLanguage()
       }
 
+      otherOrgMember =
+        addUserAccount {
+          username = "other_org_member"
+          name = "Other Org Member"
+        }.self
+
+      serverAdmin =
+        addUserAccount {
+          username = "server_admin"
+          name = "Server Admin"
+          role = UserAccount.Role.ADMIN
+        }.self
+
       otherOrg =
         addOrganization {
           name = "Vibrant translators"
+        }.build {
+          addRole {
+            user = this@PublicProjectsControllerTestData.otherOrgMember
+            type = OrganizationRoleType.MEMBER
+          }
         }.self
 
       addProject(organizationOwner = otherOrg) {
@@ -58,6 +92,80 @@ class PublicProjectsControllerTestData : BaseTestData() {
           user = this@PublicProjectsControllerTestData.directPermissionUser
           type = ProjectPermissionType.TRANSLATE
         }
+      }
+
+      noPublicOrgMember =
+        addUserAccount {
+          username = "no_public_org_member"
+          name = "No Public Org Member"
+        }.self
+
+      noPublicOrg =
+        addOrganization {
+          name = "Members only outfit"
+        }.build {
+          addRole {
+            user = this@PublicProjectsControllerTestData.noPublicOrgMember
+            type = OrganizationRoleType.MEMBER
+          }
+        }.self
+
+      addProject(organizationOwner = noPublicOrg) {
+        name = "Members only private project"
+      }.build {
+        addBaseLanguage()
+      }
+
+      noBaseLangOnlyOrg =
+        addOrganization {
+          name = "No base lang only org"
+        }.self
+
+      addProject(organizationOwner = noBaseLangOnlyOrg) {
+        name = "No base lang only org project"
+        public = true
+      }.build {
+        noBaseLangOnlyOrgProject = self
+        addBaseLanguage()
+      }
+
+      softDeletedBaseLangOnlyOrg =
+        addOrganization {
+          name = "Soft deleted base lang only org"
+        }.self
+
+      addProject(organizationOwner = softDeletedBaseLangOnlyOrg) {
+        name = "Soft deleted base lang only org project"
+        public = true
+      }.build {
+        softDeletedBaseLangOnlyOrgProject = self
+        addBaseLanguage()
+      }
+
+      deletedProjectOnlyOrg =
+        addOrganization {
+          name = "Deleted project only org"
+        }.self
+
+      addProject(organizationOwner = deletedProjectOnlyOrg) {
+        name = "Deleted project only org project"
+        public = true
+      }.build {
+        deletedProjectOnlyOrgProject = self
+        addBaseLanguage()
+      }
+
+      softDeletedOrg =
+        addOrganization {
+          name = "Soft deleted org"
+        }.self
+
+      addProject(organizationOwner = softDeletedOrg) {
+        name = "Soft deleted org public project"
+        public = true
+      }.build {
+        softDeletedOrgPublicProject = self
+        addBaseLanguage()
       }
 
       addProject(organizationOwner = userAccountBuilder.defaultOrganizationBuilder.self) {

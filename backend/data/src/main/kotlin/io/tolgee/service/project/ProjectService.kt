@@ -463,10 +463,16 @@ class ProjectService(
   fun findAllPublicPaged(
     pageable: Pageable,
     search: String?,
+    organizationId: Long? = null,
   ): Page<ProjectWithLanguagesView> {
     val userAccountId = authenticationFacade.authenticatedUserOrNull?.id ?: NO_USER_ID
-    val projects = projectRepository.findAllPublic(userAccountId, pageable, search)
+    val projects = projectRepository.findAllPublic(userAccountId, pageable, search, organizationId)
     return projects.map { ProjectWithLanguagesView.fromProjectView(it, null) }
+  }
+
+  @Transactional(readOnly = true)
+  fun hasPublicProjects(organizationId: Long): Boolean {
+    return projectRepository.hasPublicProjects(organizationId)
   }
 
   @CacheEvict(cacheNames = [Caches.PROJECTS], allEntries = true)

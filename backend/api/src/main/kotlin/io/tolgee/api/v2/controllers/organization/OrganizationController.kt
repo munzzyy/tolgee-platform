@@ -35,6 +35,7 @@ import io.tolgee.security.authentication.AllowApiAccess
 import io.tolgee.security.authentication.AuthTokenType
 import io.tolgee.security.authentication.AuthenticationFacade
 import io.tolgee.security.authentication.RequiresSuperAuthentication
+import io.tolgee.security.authorization.AllowsCommunityAccess
 import io.tolgee.security.authorization.IsGlobalRoute
 import io.tolgee.security.authorization.RequiresOrganizationRole
 import io.tolgee.security.authorization.UseDefaultPermissions
@@ -127,6 +128,7 @@ class OrganizationController(
   @Operation(summary = "Get one organization")
   @AllowApiAccess(AuthTokenType.ONLY_PAT)
   @UseDefaultPermissions
+  @AllowsCommunityAccess
   @OpenApiOrderExtension(2)
   fun get(
     @PathVariable("id") id: Long,
@@ -140,6 +142,7 @@ class OrganizationController(
   @Operation(summary = "Get organization by slug")
   @AllowApiAccess(AuthTokenType.ONLY_PAT)
   @UseDefaultPermissions
+  @AllowsCommunityAccess
   @OpenApiOrderExtension(3)
   fun get(
     @PathVariable("slug") slug: String,

@@ -37,8 +37,9 @@ class PublicProjectsController(
   fun getAllPublicWithStatistics(
     @ParameterObject @SortDefault("name") pageable: Pageable,
     @RequestParam("search") search: String?,
+    @RequestParam("organizationId") organizationId: Long?,
   ): PagedModel<ProjectWithStatsModel> {
-    val projects = projectService.findAllPublicPaged(pageable, search)
+    val projects = projectService.findAllPublicPaged(pageable, search, organizationId)
     return projectWithStatsFacade.getPagedModelWithStats(projects)
   }
 }

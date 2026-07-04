@@ -29,6 +29,7 @@ import io.tolgee.security.authentication.AuthenticationFacade
 import io.tolgee.security.authentication.ReadOnlyOperation
 import io.tolgee.security.authentication.TolgeeAuthentication
 import io.tolgee.security.authentication.WriteOperation
+import io.tolgee.service.organization.OrganizationCommunityAccessService
 import io.tolgee.service.organization.OrganizationRoleService
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -52,6 +53,8 @@ class OrganizationAuthorizationInterceptorTest {
 
   private val organizationRoleService = Mockito.mock(OrganizationRoleService::class.java)
 
+  private val organizationCommunityAccessService = Mockito.mock(OrganizationCommunityAccessService::class.java)
+
   private val requestContextService = Mockito.mock(RequestContextService::class.java)
 
   private val organization = Mockito.mock(OrganizationDto::class.java)
@@ -62,6 +65,7 @@ class OrganizationAuthorizationInterceptorTest {
     OrganizationAuthorizationInterceptor(
       authenticationFacade,
       organizationRoleService,
+      organizationCommunityAccessService,
       requestContextService,
       Mockito.mock(OrganizationHolder::class.java),
     )
@@ -95,6 +99,7 @@ class OrganizationAuthorizationInterceptorTest {
       authenticationFacade,
       authentication,
       organizationRoleService,
+      organizationCommunityAccessService,
       requestContextService,
       organization,
       userAccount,
@@ -174,6 +179,63 @@ class OrganizationAuthorizationInterceptorTest {
 
     performReadOnlyRequests { all -> all.andIsOk }
     performWriteRequests { all -> all.andIsOk }
+  }
+
+  @Test
+  fun `community access grants a read-only annotated endpoint to a non-member`() {
+    Mockito.`when`(organizationRoleService.canUserViewStrict(1337L, 1337L)).thenReturn(false)
+    Mockito.`when`(organizationCommunityAccessService.canUserViewAtLeastCommunity(1337L, 1337L)).thenReturn(true)
+
+    mockMvc.perform(get("/v2/organizations/1337/community-access")).andIsOk
+  }
+
+  @Test
+  fun `community access does not grant endpoints without the annotation`() {
+    Mockito.`when`(organizationRoleService.canUserViewStrict(1337L, 1337L)).thenReturn(false)
+    Mockito.`when`(organizationCommunityAccessService.canUserViewAtLeastCommunity(1337L, 1337L)).thenReturn(true)
+
+    mockMvc.perform(get("/v2/organizations/1337/default-perms")).andIsNotFound
+  }
+
+  @Test
+  fun `community access does not grant a write method on the annotated path`() {
+    Mockito.`when`(organizationRoleService.canUserViewStrict(1337L, 1337L)).thenReturn(false)
+    Mockito.`when`(organizationCommunityAccessService.canUserViewAtLeastCommunity(1337L, 1337L)).thenReturn(true)
+
+    mockMvc.perform(post("/v2/organizations/1337/community-access-write-method")).andIsNotFound
+    Mockito
+      .verify(organizationCommunityAccessService, Mockito.never())
+      .canUserViewAtLeastCommunity(any(), any())
+  }
+
+  @Test
+  fun `it hides the annotated endpoint when the community predicate is false`() {
+    Mockito.`when`(organizationRoleService.canUserViewStrict(1337L, 1337L)).thenReturn(false)
+    Mockito.`when`(organizationCommunityAccessService.canUserViewAtLeastCommunity(1337L, 1337L)).thenReturn(false)
+
+    mockMvc.perform(get("/v2/organizations/1337/community-access")).andIsNotFound
+  }
+
+  @Test
+  fun `admin takes the audited bypass path on the annotated endpoint, not the community branch`() {
+    Mockito.`when`(organizationRoleService.canUserViewStrict(1337L, 1337L)).thenReturn(false)
+    Mockito.`when`(userAccount.role).thenReturn(UserAccount.Role.ADMIN)
+
+    mockMvc.perform(get("/v2/organizations/1337/community-access")).andIsOk
+    Mockito
+      .verify(organizationCommunityAccessService, Mockito.never())
+      .canUserViewAtLeastCommunity(any(), any())
+  }
+
+  @Test
+  fun `supporter takes the audited bypass path on the annotated read-only endpoint, not the community branch`() {
+    Mockito.`when`(organizationRoleService.canUserViewStrict(1337L, 1337L)).thenReturn(false)
+    Mockito.`when`(userAccount.role).thenReturn(UserAccount.Role.SUPPORTER)
+
+    mockMvc.perform(get("/v2/organizations/1337/community-access")).andIsOk
+    Mockito
+      .verify(organizationCommunityAccessService, Mockito.never())
+      .canUserViewAtLeastCommunity(any(), any())
   }
 
   private fun performReadOnlyRequests(condition: (ResultActions) -> Unit) {
@@ -260,6 +322,20 @@ class OrganizationAuthorizationInterceptorTest {
     @RequiresOrganizationRole(OrganizationRoleType.OWNER)
     @UseDefaultPermissions
     fun nonsensePerms(
+      @PathVariable id: Long,
+    ) = "hello from org #$id!"
+
+    @GetMapping("/v2/organizations/{id}/community-access")
+    @UseDefaultPermissions
+    @AllowsCommunityAccess
+    fun communityAccess(
+      @PathVariable id: Long,
+    ) = "hello from org #$id!"
+
+    @PostMapping("/v2/organizations/{id}/community-access-write-method")
+    @UseDefaultPermissions
+    @AllowsCommunityAccess
+    fun communityAccessWriteMethod(
       @PathVariable id: Long,
     ) = "hello from org #$id!"
   }

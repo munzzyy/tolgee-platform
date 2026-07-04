@@ -49,6 +49,21 @@ interface ProjectRepository : JpaRepository<Project, Long> {
             or bl.tag = :#{#filters.filterBaseLanguageTag}
         )
     """
+
+    /**
+     * The single definition of "publicly visible project" — shared by [findAllPublic] and
+     * [hasPublicProjects] so listing and community org access can never diverge.
+     * Expects aliases `r` (Project), `bl` (base language), `o` (owning organization).
+     *
+     * `o.deletedAt is null` is load-bearing: org soft-delete leaves the org's projects with
+     * `deletedAt = null` and `public = true`, so dropping the clause re-lists (and re-grants
+     * community access to) soft-deleted organizations' public projects.
+     */
+    const val PUBLIC_PROJECT_VISIBILITY = """
+        r.public = true and r.deletedAt is null and r.organizationOwner is not null
+        and r.baseLanguage is not null and bl.deletedAt is null
+        and o.deletedAt is null
+        """
   }
 
   @Query(
@@ -108,19 +123,30 @@ interface ProjectRepository : JpaRepository<Project, Long> {
    */
   @Query(
     """$BASE_VIEW_QUERY
-        where r.public = true and r.deletedAt is null and r.organizationOwner is not null
-        and r.baseLanguage is not null and bl.deletedAt is null
+        where $PUBLIC_PROJECT_VISIBILITY
         and (
             :search is null or (lower(r.name) like lower(concat('%', cast(:search as text), '%'))
             or lower(o.name) like lower(concat('%', cast(:search as text),'%')))
         )
+        and (:organizationId is null or o.id = :organizationId)
     """,
   )
   fun findAllPublic(
     userAccountId: Long,
     pageable: Pageable,
     @Param("search") search: String? = null,
+    organizationId: Long? = null,
   ): Page<ProjectView>
+
+  @Query(
+    """select count(r) > 0 from Project r
+        left join r.baseLanguage bl
+        left join r.organizationOwner o
+        where $PUBLIC_PROJECT_VISIBILITY
+        and o.id = :organizationId
+    """,
+  )
+  fun hasPublicProjects(organizationId: Long): Boolean
 
   fun findAllByOrganizationOwnerId(organizationOwnerId: Long): List<Project>
 

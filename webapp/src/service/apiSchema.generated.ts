@@ -5141,6 +5141,8 @@ export interface components {
       /** @example Links to avatar images */
       avatar?: components["schemas"]["Avatar"];
       basePermissions: components["schemas"]["PermissionModel"];
+      /** @description True when the current user only has community access to this organization (via its public projects) — member-only fields are withheld */
+      communityOnly: boolean;
       /**
        * @description The role of currently authorized user.
        *
@@ -24555,6 +24557,7 @@ export interface operations {
         /** Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported. */
         sort?: string[];
         search?: string;
+        organizationId?: number;
       };
     };
     responses: {
